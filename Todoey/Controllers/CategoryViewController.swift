@@ -7,14 +7,15 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
     
-    var categoryArray = [Category]()
+    //Code smell. Hints at possible bad code but not an issue. According to the Realm Docs you do this because this can fail when app is first launched if resources are constraint
+    let realm = try! Realm()
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-
+    var categoryArray: Results<Category>?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         loadCategories()
@@ -26,11 +27,10 @@ class CategoryViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Category", style: .default) { (action) in
             //Handler
             
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             newCategory.name = textField.text!
-            self.categoryArray.append(newCategory)
-            self.saveCategories()
-            //            self.defaults.set(self.itemArray, forKey: "TodoListArray")
+            self.save(category: newCategory)
+            //            self.defaults.set(self.todoItems, forKey: "TodoListArray")
             //            self.tableView.reloadData()
         }
         
@@ -46,15 +46,13 @@ class CategoryViewController: UITableViewController {
     //MARK: - TableView Datasource Methods
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-        let category = categoryArray[indexPath.row]
-        
-        cell.textLabel?.text = category.name
+        cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No categories added yet"
         
         return cell
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return categoryArray?.count ?? 1
     }
     
     //MARK: - TableView Delegate Methods
@@ -65,22 +63,20 @@ class CategoryViewController: UITableViewController {
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         let destinationVC = segue.destination as! TodoListViewController
         if let indexPath = tableView.indexPathForSelectedRow {
-            destinationVC.selectedCategory = categoryArray[indexPath.row]
+            destinationVC.selectedCategory = categoryArray?[indexPath.row]
         }
     }
     //MARK: - Data Manipulation Methods
-    func loadCategories(with request: NSFetchRequest<Category> = Category.fetchRequest()) {
-        do {
-            categoryArray = try context.fetch(request)
-        } catch {
-            print("Error fetching data from context \(error)")
-        }
+    func loadCategories() {
+        categoryArray = realm.objects(Category.self)
         tableView.reloadData()
     }
     
-    func saveCategories() {
+    func save(category: Category) {
         do {
-            try context.save();
+            try realm.write {
+                realm.add(category)
+            };
         } catch {
             print("Error encoding category array, \(error)")
         }
