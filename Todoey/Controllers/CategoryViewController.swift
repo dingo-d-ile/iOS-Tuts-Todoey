@@ -8,8 +8,9 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+class CategoryViewController: SwipeTableViewController {
     
     //Code smell. Hints at possible bad code but not an issue. According to the Realm Docs you do this because this can fail when app is first launched if resources are constraint
     let realm = try! Realm()
@@ -19,6 +20,7 @@ class CategoryViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         loadCategories()
+        tableView.separatorStyle = .none
     }
     
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
@@ -29,6 +31,7 @@ class CategoryViewController: UITableViewController {
             
             let newCategory = Category()
             newCategory.name = textField.text!
+            newCategory.bgColor = UIColor.randomFlat.hexValue()
             self.save(category: newCategory)
             //            self.defaults.set(self.todoItems, forKey: "TodoListArray")
             //            self.tableView.reloadData()
@@ -45,9 +48,13 @@ class CategoryViewController: UITableViewController {
     
     //MARK: - TableView Datasource Methods
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No categories added yet"
-        
+        if let catColor = categoryArray?[indexPath.row].bgColor {
+            guard let hex = UIColor.init(hexString: catColor) else { fatalError() }
+            cell.backgroundColor = hex
+            cell.textLabel?.textColor = ContrastColorOf(hex, returnFlat: true)
+        }
         return cell
     }
     
@@ -81,5 +88,19 @@ class CategoryViewController: UITableViewController {
             print("Error encoding category array, \(error)")
         }
         self.tableView.reloadData()
+    }
+    
+    //MARK: Delete Data from Swipe
+    
+    override func updateModel(at indexPath: IndexPath) {
+        do {
+            try self.realm.write {
+                if let ct = self.categoryArray?[indexPath.row] {
+                    self.realm.delete(ct) //this is to delete an item
+                }
+            }
+        } catch {
+            print("Error encoding category array, \(error)")
+        }
     }
 }
